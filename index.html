@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>시간표형 타임 트래커</title>
+    <!-- Google Fonts - Inter 폰트 추가 (깔끔하면서도 귀여운 느낌) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* CSS 변수 정의 - somnote 디자인에서 영감 */
+        :root {
+            --main-bg-color: #FFF5F7; /* 전체 배경색 (아주 아주 연한 핑크) */
+            --card-bg-color: #ffffff; /* 카드/컨테이너 배경색 (흰색 유지) */
+            --header-bg-color: #FFDDE2; /* 헤더 배경색 (밝은 핑크) */
+            --cell-bg-color: #ffffff; /* 일반 셀 배경색 (흰색) */
+            --cell-border-color: #FFC1CC; /* 셀 테두리색 (밝은 로즈 핑크) */
+            --input-border-color: #FFC1CC; /* 입력 필드 테두리색 (셀 테두리와 동일) */
+            --text-color: #6A4C5C; /* 기본 텍스트 색상 (밝은 뮤트된 플럼/브라운) */
+            --placeholder-color: #B59BA6; /* 플레이스홀더 텍스트 색상 (더 밝은 뮤트된 플럼/핑크) */
+
+            /* 버튼 색상 */
+            --button-primary-bg: #E788A8; /* 메인 버튼 (밝은 로즈 레드) */
+            --button-primary-hover: #D07390; /* 메인 버튼 호버 (약간 더 어두운 밝은 로즈 레드) */
+            --button-confirm-bg: #8bc34a; /* 확인 버튼 (초록색 유지) */
+            --button-confirm-hover: #7cb342; /* 확인 버튼 호버 */
+            --button-cancel-bg: #bdbdbd; /* 취소 버튼 (회색 유지) */
+            --button-cancel-hover: #a0a0a0; /* 취소 버튼 호버 */
+            --button-delete-bg: #ef5350; /* 삭제 버튼 (빨간색 유지) */
+            --button-delete-hover: #e53935; /* 삭제 버튼 호버 */
+
+            /* 그림자 및 둥근 모서리 */
+            --border-radius-sm: 4px; /* 더 작게 */
+            --border-radius-md: 8px; /* 더 작게 */
+            --border-radius-lg: 12px; /* 더 작게 */
+            --box-shadow-light: 0 3px 6px rgba(0, 0, 0, 0.05); /* 더 부드럽고 얕은 그림자 */
+            --box-shadow-medium: 0 5px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        /* 기본 바디 스타일 */
+        body {
+            font-family: 'Inter', sans-serif; /* Inter 폰트 적용 */
+            background-color: var(--main-bg-color); /* 배경색 */
+            color: var(--text-color); /* 기본 텍스트 색상 */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px; /* 패딩 축소 */
+            margin: 0;
+            overflow-x: hidden; /* 가로 스크롤 방지 */
+            min-height: 100vh; /* 최소 높이 설정 */
+            box-sizing: border-box;
+        }
+
+        /* Container style (전체 앱을 감싸는 컨테이너) */
+        .container {
+            width: 100%; /* 반응형을 위해 너비 100% 설정 */
+            max-width: 450px; /* 새 요소들을 위해 최대 너비 조정 */
+            background-color: var(--card-bg-color);
+            border-radius: var(--border-radius-lg); /* 둥근 모서리 */
+            box-shadow: var(--box-shadow-light); /* 부드러운 그림자 */
+            padding: 8px; /* 패딩 축소 */
+            box-sizing: border-box; /* 너비 계산에 패딩 포함 */
+            margin-bottom: 8px; /* 입력 UI와 시간표 사이의 마진 축소 */
+        }
+
+        /* Input UI style */
+        .input-ui {
+            width: 100%; /* 반응형을 위해 너비 100% 설정 */
+            max-width: 450px; /* 새 요소들을 위해 최대 너비 조정 */
+            background-color: var(--card-bg-color);
+            padding: 8px; /* 패딩 축소 */
+            border-radius: var(--border-radius-lg); /* 둥근 상자 */
+            box-shadow: var(--box-shadow-light); /* 부드러운 그림자 */
+            margin-bottom: 5px; /* 마진 5px로 축소 */
+            display: flex;
+            flex-wrap: wrap; /* 요소들이 다음 줄로 넘어갈 수 있도록 허용 */
+            align-items: center;
+            justify-content: flex-start; /* 왼쪽 정렬 */
+            gap: 4px; /* 요소들 사이의 간격 축소 */
+            box-sizing: border-box;
+            overflow-x: hidden; /* 내용이 넘칠 경우 스크롤바 대신 축소 */
+            padding-bottom: 4px; /* 스크롤바를 위한 공간 (숨겨져 있어도) */
+        }
+
+        .input-ui input[type="text"],
+        .input-ui select {
+            padding: 5px 6px; /* 패딩 축소 */
+            border: 1px solid var(--input-border-color);
+            border-radius: var(--border-radius-sm); /* 둥근 모서리 */
+            font-size: 11px; /* 폰트 크기 축소 */
+            font-family: 'Inter', sans-serif;
+            color: var(--text-color);
+            flex-grow: 1; /* 유연하게 늘어나도록 허용 */
+            min-width: 50px; /* 최소 너비 축소 */
+        }
+
+        .input-ui input[type="text"] {
+            flex-basis: 80px; /* 기본 너비 축소 */
+        }
+
+        .input-ui select {
+            flex-basis: 40px; /* 기본 너비 축소 */
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%204%205%22%3E%3Cpath%20fill%3D%22%23333%22%20d%3D%22M2%200L0%202h4zm0%205L0%203h4z%22%2F%3E%3C%2Fsvg%3E');
+            background-repeat: no-repeat;
+            background-position: right 0.7em top 50%, 0 0;
+            background-size: 0.65em auto, 100%;
+        }
+
+        .input-ui input[type="color"] {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            border: none;
+            width: 24px; /* 크기 축소 */
+            height: 24px; /* 크기 축소 */
+            border-radius: var(--border-radius-sm);
+            cursor: pointer;
+            padding: 0;
+            background: none;
+            position: relative; /* 팝업 위치의 기준 */
+            z-index: 100; /* 다른 요소 위에 표시 */
+            flex-shrink: 0; /* 축소 방지 */
+        }
+
+        .input-ui input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        .input-ui input[type="color"]::-webkit-color-swatch {
+            border: 1px solid var(--input-border-color);
+            border-radius: var(--border-radius-sm);
+        }
+
+        .input-ui button {
+            background-color: var(--button-primary-bg);
+            color: white;
+            padding: 5px 10px; /* 패딩 축소 */
+            border: none;
+            border-radius: var(--border-radius-sm);
+            cursor: pointer;
+            font-size: 11px; /* 폰트 크기 축소 */
+            font-weight: bold;
+            font-family: 'Inter', sans-serif;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); /* 버튼 그림자 */
+            transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.1s ease;
+            flex-shrink: 0;
+        }
+
+        .input-ui button:hover {
+            background-color: var(--button-primary-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+        }
+
+        .input-ui button:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 팔레트에 색상 추가 버튼 (작은 '+' 버튼) */
+        .add-color-to-palette-button {
+            background-color: var(--button-confirm-bg); /* 추가 버튼 색상 */
+            color: white;
+            width: 24px; /* 색상 입력 필드 크기와 일치 */
+            height: 24px; /* 색상 입력 필드 크기와 일치 */
+            padding: 0; /* 패딩 없음 */
+            border: none;
+            border-radius: 50%; /* 원형 버튼 */
+            cursor: pointer;
+            font-size: 14px; /* '+' 기호 크기 */
+            font-weight: bold;
+            font-family: 'Inter', sans-serif;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.1s ease;
+            display: flex; /* '+' 중앙 정렬 */
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .add-color-to-palette-button:hover {
+            background-color: var(--button-confirm-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+        }
+
+        .add-color-to-palette-button:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Favorite Colors Section */
+        .favorite-colors-section {
+            width: 100%;
+            max-width: 450px; /* 최대 너비 조정 */
+            background-color: var(--card-bg-color);
+            padding: 4px 8px; /* 수직 패딩 축소, 수평 유지 */
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--box-shadow-light);
+            margin-top: 5px; /* 마진 5px로 축소 */
+            margin-bottom: 10px; /* 마진 축소 */
+            box-sizing: border-box;
+            display: flex; /* 내부 레이아웃을 위해 flexbox 사용 */
+            flex-direction: row; /* 수평 정렬 */
+            align-items: center; /* 요소들을 수직 중앙 정렬 */
+            justify-content: center; /* 내용 중앙 정렬 */
+            min-height: 30px; /* 고정 최소 높이 설정 */
+            max-height: 30px; /* 고정 최대 높이 설정 */
+            overflow: hidden; /* 스와치가 높이를 초과할 경우 숨김 */
+        }
+
+        .favorite-colors-palette {
+            display: flex;
+            flex-wrap: nowrap; /* 얇게 유지하기 위해 줄 바꿈 방지 */
+            gap: 4px; /* 색상 스와치 사이의 간격 축소 */
+            justify-content: center; /* 스와치 중앙 정렬 */
+            padding: 0; /* 패딩 없음 */
+            min-height: auto; /* 내용이 높이를 정의하도록 허용 */
+            max-height: none; /* 내용이 높이를 정의하도록 허용 */
+            overflow-x: auto; /* 색상이 많을 경우 가로 스크롤 허용 */
+            overflow-y: hidden;
+            align-items: center; /* 스와치 수직 중앙 정렬 */
+            flex-grow: 1; /* 팔레트가 늘어나도록 허용 */
+            margin: 0 5px; /* 작은 수평 마진 */
+        }
+
+        .favorite-colors-palette::-webkit-scrollbar {
+            height: 4px; /* 얇은 스크롤바 */
+        }
+
+        .favorite-colors-palette::-webkit-scrollbar-thumb {
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 2px;
+        }
+
+        .color-swatch {
+            width: 18px; /* 색상 스와치 크기 축소 */
+            height: 18px; /* 색상 스와치 크기 축소 */
+            border-radius: 50%; /* 원형으로 만듦 */
+            border: 1px solid var(--input-border-color);
+            cursor: pointer;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+            flex-shrink: 0; /* 축소 방지 */
+        }
+
+        .color-swatch:hover {
+            transform: scale(1.1); /* 호버 시 약간 확대 */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Timetable container style */
+        .time-table-container {
+            position: relative;
+            width: 100%;
+            max-width: 450px; /* 최대 너비 조정 */
+            border-radius: var(--border-radius-lg);
+            overflow-x: hidden; /* 내용이 넘칠 경우 스크롤바 대신 축소 */
+            overflow-y: hidden;
+            box-shadow: var(--box-shadow-light);
+            background-color: var(--card-bg-color);
+        }
+
+        /* Timetable grid style */
+        .time-table {
+            display: grid;
+            /* 시간 레이블을 위한 첫 번째 열 (25px 고정), 나머지 12개 열은 분 (유연) */
+            grid-template-columns: 25px repeat(12, 1fr); /* 시간 열 너비 축소 */
+            border-collapse: separate;
+            border-spacing: 0;
+            width: 100%;
+        }
+
+        /* Common style for timetable cells */
+        .time-table-cell {
+            height: 25px; /* 셀 높이 축소 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
+            border: 1px solid var(--cell-border-color);
+            font-size: 10px; /* 폰트 크기 축소 */
+            color: var(--text-color);
+            white-space: nowrap; /* 텍스트 줄 바꿈 방지 */
+            overflow: hidden; /* 넘치는 텍스트 숨김 */
+            text-overflow: ellipsis; /* 넘치는 텍스트에 말줄임표 표시 */
+        }
+
+        /* Minute header cell style */
+        .header-minute-cell {
+            background-color: var(--header-bg-color);
+            font-weight: bold;
+        }
+
+        /* Hour header cell style */
+        .header-hour-cell {
+            background-color: var(--header-bg-color);
+            font-weight: bold;
+        }
+
+        /* Regular time cell background */
+        .time-cell {
+            background-color: var(--cell-bg-color);
+        }
+
+        /* Schedule block style */
+        .schedule-block {
+            position: absolute;
+            /* somnote의 파스텔 톤을 반영한 기본 색상 */
+            background-color: #E788A8; /* 밝은 로즈 핑크 */
+            border-radius: var(--border-radius-sm);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+            font-size: 10px; /* 폰트 크기 축소 */
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            cursor: pointer;
+            z-index: 10;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); /* 스케줄 블록 그림자 */
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+
+        .schedule-block:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+        }
+
+        .schedule-block.deleting {
+            background-color: var(--button-delete-bg) !important; /* 삭제 시 빨간색 */
+            opacity: 0.7;
+            box-shadow: none;
+        }
+
+        /* Drag preview block style */
+        .drag-preview-block {
+            position: absolute;
+            background-color: rgba(231, 136, 168, 0.5); /* 반투명 밝은 로즈 핑크 */
+            border: 1px dashed #E788A8; /* 점선 테두리 */
+            border-radius: var(--border-radius-sm);
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        /* Custom modal style */
+        .custom-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            visibility: hidden;
+            opacity: 0;
+            transition: visibility 0s, opacity 0.3s ease;
+        }
+
+        .custom-modal-overlay.visible {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .custom-modal-content {
+            background-color: var(--card-bg-color);
+            padding: 15px; /* 패딩 축소 */
+            border-radius: var(--border-radius-md);
+            box-shadow: var(--box-shadow-medium);
+            text-align: center;
+            max-width: 220px; /* 최대 너비 축소 */
+            width: 90%;
+            transform: translateY(-20px);
+            transition: transform 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .custom-modal-overlay.visible .custom-modal-content {
+            transform: translateY(0);
+        }
+
+        .custom-modal-content h3 {
+            margin-top: 0;
+            color: var(--text-color);
+            font-size: 1em; /* 폰트 크기 축소 */
+            margin-bottom: 8px; /* 마진 축소 */
+        }
+
+        .custom-modal-content p {
+            color: var(--text-color);
+            margin-bottom: 12px; /* 마진 축소 */
+            line-height: 1.2; /* 줄 높이 조정 */
+            font-size: 0.85em; /* 폰트 크기 축소 */
+        }
+
+        .custom-modal-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 6px; /* 간격 축소 */
+        }
+
+        .custom-modal-buttons button {
+            padding: 6px 12px; /* 패딩 축소 */
+            border: none;
+            border-radius: var(--border-radius-sm);
+            font-size: 12px; /* 폰트 크기 축소 */
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            font-family: 'Inter', sans-serif;
+        }
+
+        .custom-modal-buttons button.confirm-btn {
+            background-color: var(--button-delete-bg); /* 삭제 버튼 색상 */
+            color: white;
+        }
+
+        .custom-modal-buttons button.confirm-btn:hover {
+            background-color: var(--button-delete-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+        }
+
+        .custom-modal-buttons button.cancel-btn {
+            background-color: var(--button-cancel-bg);
+            color: white;
+        }
+
+        .custom-modal-buttons button.cancel-btn:hover {
+            background-color: var(--button-cancel-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Custom alert message box style */
+        .custom-alert-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: var(--card-bg-color);
+            padding: 15px; /* 패딩 축소 */
+            border-radius: var(--border-radius-md);
+            box-shadow: var(--box-shadow-medium);
+            text-align: center;
+            z-index: 1001;
+            visibility: hidden;
+            opacity: 0;
+            transition: visibility 0s, opacity 0.3s ease, transform 0.3s ease;
+            font-family: 'Inter', sans-serif;
+            max-width: 220px; /* 최대 너비 축소 */
+            width: 90%;
+        }
+
+        .custom-alert-box.visible {
+            visibility: visible;
+            opacity: 1;
+            transform: translate(-50%, -50%);
+        }
+
+        .custom-alert-box p {
+            margin-bottom: 10px; /* 마진 축소 */
+            color: var(--text-color);
+            font-size: 0.9em; /* 폰트 크기 축소 */
+        }
+
+        .custom-alert-box button {
+            background-color: var(--button-primary-bg);
+            color: white;
+            padding: 6px 12px; /* 패딩 축소 */
+            border: none;
+            border-radius: var(--border-radius-sm);
+            cursor: pointer;
+            font-size: 12px; /* 폰트 크기 축소 */
+            font-weight: bold;
+            font-family: 'Inter', sans-serif;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.1s ease;
+        }
+
+        .custom-alert-box button:hover {
+            background-color: var(--button-primary-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+        }
+
+        .custom-alert-box button:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 반응형 디자인 (작은 화면에서 입력 UI 조정) */
+        @media (max-width: 450px) { /* 매우 작은 화면 (예: 모바일 세로) 조정 */
+            body {
+                padding: 5px; /* 더 작은 바디 패딩 */
+            }
+            .input-ui {
+                flex-direction: column; /* 세로로 쌓기 */
+                align-items: stretch; /* 전체 너비 차지 */
+                flex-wrap: wrap; 
+                padding: 6px; /* input-ui 패딩 축소 */
+                gap: 3px; /* input-ui 간격 축소 */
+                margin-bottom: 5px; /* 반응형을 위한 일관성 유지 */
+            }
+            .input-ui input[type="text"],
+            .input-ui select,
+            .input-ui input[type="color"],
+            .input-ui button,
+            .add-color-to-palette-button { /* 새 버튼에도 적용 */
+                width: 100%; /* 전체 너비 */
+                margin-bottom: 5px; /* 하단 마진 축소 */
+                flex-basis: auto; /* 유연성 유지 */
+            }
+            .input-ui button {
+                margin-top: 3px; /* 버튼 상단 마진 */
+            }
+            .input-ui span { /* ~ 기호 중앙 정렬 */
+                text-align: center;
+                width: 100%;
+            }
+            .favorite-colors-section {
+                padding: 3px 5px; /* 즐겨찾는 색상 섹션 패딩 더 축소 */
+                min-height: 25px; /* 작은 화면을 위한 최소 높이 조정 */
+                max-height: 25px; /* 작은 화면을 위한 최대 높이 조정 */
+                margin-top: 5px; /* 반응형을 위한 일관성 유지 */
+            }
+            .favorite-colors-palette {
+                gap: 2px; /* 스와치 간격 더 축소 */
+            }
+            .color-swatch {
+                width: 14px; /* 스와치 더 작게 */
+                height: 14px; /* 스와치 더 작게 */
+            }
+            .add-color-to-palette-button {
+                padding: 2px 4px; /* 버튼 더 작게 */
+                font-size: 8px; /* 폰트 더 작게 */
+                width: 20px; /* 작은 화면을 위한 너비 조정 */
+                height: 20px; /* 작은 화면을 위한 높이 조정 */
+            }
+            .time-table-cell {
+                height: 20px; /* 셀 높이 더 작게 */
+                font-size: 9px; /* 폰트 크기 더 작게 */
+            }
+            .schedule-block {
+                font-size: 9px; /* 폰트 크기 더 작게 */
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Input UI Section -->
+    <div class="input-ui">
+        <input type="text" id="activityName" placeholder="활동명">
+        <select id="startTimeHour"></select>
+        <select id="startTimeMinute"></select>
+        <span style="color: var(--text-color); font-weight: bold;">~</span> <!-- 시간 구분 기호 추가 -->
+        <select id="endTimeHour"></select>
+        <select id="endTimeMinute"></select>
+        <input type="color" id="blockColor" value="#E788A8"> <!-- 기본 인디 핑크 -->
+        <button class="add-color-to-palette-button" id="addToPaletteButton">+</button> <!-- 새 '+' 버튼 -->
+        <button id="addActivity">추가</button>
+        <select id="dayOfWeekSelect"></select> <!-- 요일 선택 드롭다운 추가 -->
+    </div>
+
+    <!-- Favorite Colors Section -->
+    <div class="favorite-colors-section">
+        <div class="favorite-colors-palette" id="favoriteColorsPalette">
+            <!-- 즐겨찾는 색상 스와치는 JavaScript로 여기에 렌더링됩니다 -->
+        </div>
+    </div>
+
+    <!-- Timetable Container Section -->
+    <div class="time-table-container" id="timeTableContainer">
+        <div class="time-table" id="timeTable">
+            <!-- 분 헤더 행 (JavaScript로 생성, 첫 번째 빈 셀 제외) -->
+            <div class="time-table-cell header-minute-cell" style="background-color: var(--card-bg-color); border: none;"></div>
+            <div class="time-table-cell header-minute-cell">05</div>
+            <div class="time-table-cell header-minute-cell">10</div>
+            <div class="time-table-cell header-minute-cell">15</div>
+            <div class="time-table-cell header-minute-cell">20</div>
+            <div class="time-table-cell header-minute-cell">25</div>
+            <div class="time-table-cell header-minute-cell">30</div>
+            <div class="time-table-cell header-minute-cell">35</div>
+            <div class="time-table-cell header-minute-cell">40</div>
+            <div class="time-table-cell header-minute-cell">45</div>
+            <div class="time-table-cell header-minute-cell">50</div>
+            <div class="time-table-cell header-minute-cell">55</div>
+            <div class="time-table-cell header-minute-cell">60</div>
+            <!-- 시간 셀은 JavaScript로 생성됩니다 -->
+        </div>
+    </div>
+
+    <!-- Custom Delete Confirmation Modal -->
+    <div class="custom-modal-overlay" id="deleteConfirmModal">
+        <div class="custom-modal-content">
+            <h3 id="modalActivityName"></h3>
+            <p>이 활동을 정말 삭제하시겠습니까?</p>
+            <div class="custom-modal-buttons">
+                <button class="confirm-btn" id="confirmDeleteBtn">삭제</button>
+                <button class="cancel-btn" id="cancelDeleteBtn">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Alert Message Box -->
+    <div class="custom-alert-box" id="customAlertBox">
+        <p id="customAlertMessage"></p>
+        <button id="customAlertCloseBtn">확인</button>
+    </div>
+
+    <script>
+        // DOM 요소 참조
+        const timeTable = document.getElementById('timeTable');
+        const timeTableContainer = document.getElementById('timeTableContainer');
+        const activityNameInput = document.getElementById('activityName');
+        const startTimeHourSelect = document.getElementById('startTimeHour');
+        const startTimeMinuteSelect = document.getElementById('startTimeMinute');
+        const endTimeHourSelect = document.getElementById('endTimeHour');
+        const endTimeMinuteSelect = document.getElementById('endTimeMinute');
+        const blockColorInput = document.getElementById('blockColor');
+        const addActivityButton = document.getElementById('addActivity');
+        const dayOfWeekSelect = document.getElementById('dayOfWeekSelect'); // 요일 선택 드롭다운
+
+        // 즐겨찾는 색상 DOM 요소
+        const favoriteColorsPalette = document.getElementById('favoriteColorsPalette');
+        const addToPaletteButton = document.getElementById('addToPaletteButton'); // 이제 '+' 버튼
+
+        // 모달 관련 DOM 요소 참조
+        const deleteConfirmModal = document.getElementById('deleteConfirmModal');
+        const modalActivityName = document.getElementById('modalActivityName');
+        const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+        const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+
+        // 알림 메시지 상자 관련 DOM 요소 참조
+        const customAlertBox = document.getElementById('customAlertBox');
+        const customAlertMessage = document.getElementById('customAlertMessage');
+        const customAlertCloseBtn = document.getElementById('customAlertCloseBtn');
+
+        let blockToDelete = null; // 삭제할 블록 요소를 저장하는 변수
+
+        // 드래그 관련 변수
+        let isDragging = false;
+        let dragStartCellData = null; // { hour, minute, col, row }
+        let currentDragElement = null; // 드래그 중 표시되는 임시 블록 DOM 요소
+
+        // 상수 정의
+        const CELL_HEIGHT = 25; // 셀 높이 축소
+        const MINUTES_IN_HOUR = 60; // 1시간은 60분
+        const MINUTES_PER_CELL = 5; // 각 셀은 5분을 나타냄
+        const CELLS_PER_HOUR = MINUTES_IN_HOUR / MINUTES_PER_CELL; // 시간당 분 셀 수 (12)
+        const TOTAL_HOURS = 24; // 총 24시간
+        const START_DISPLAY_HOUR = 6; // 시간표 시작 시간 (오전 6시)
+        const LOCAL_STORAGE_ACTIVITIES_KEY = 'timeTrackerActivities'; // 활동을 위한 로컬 스토리지 키
+        const LOCAL_STORAGE_COLORS_KEY = 'timeTrackerFavoriteColors'; // 즐겨찾는 색상을 위한 로컬 스토리지 키
+
+        // 요일 배열 (월요일부터 시작)
+        const daysOfWeek = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일'];
+        let selectedDayIndex = new Date().getDay(); // 0:일, 1:월, ..., 6:토
+        if (selectedDayIndex === 0) selectedDayIndex = 6; // 일요일은 6 (마지막 날)
+        else selectedDayIndex--; // 0:월, 1:화, ... 5:토, 6:일로 조정
+
+        // 모든 요일의 활동을 저장하는 객체 (메모리 내)
+        // 예시: { '0': [{...}, {...}], '1': [{...}], ... }
+        let allActivities = {}; 
+        daysOfWeek.forEach((_, index) => {
+            allActivities[index] = []; // 각 요일에 대한 빈 배열 초기화
+        });
+
+        // 즐겨찾는 색상 헥스 코드를 저장하는 배열
+        let favoriteColors = [];
+
+        // 동적으로 계산된 셀 너비
+        let dynamicCellWidth = 0;
+
+        /**
+         * 현재 시간표 컨테이너 너비를 기반으로 셀 너비를 계산하고 업데이트합니다.
+         * 이 함수는 초기 로드 시와 컨테이너 크기가 변경될 때 호출됩니다.
+         */
+        function updateCellDimensions() {
+            // 첫 번째 열 (시간 열)의 실제 계산된 너비를 가져옵니다.
+            const firstColumnHeader = timeTable.querySelector('.header-hour-cell');
+            let actualHourColumnWidth = 25; // 요소를 찾을 수 없거나 너비가 없는 경우 기본값 25px
+
+            if (firstColumnHeader) {
+                actualHourColumnWidth = firstColumnHeader.offsetWidth;
+            }
+
+            // 12개의 분 셀에 사용할 수 있는 총 너비를 계산합니다.
+            const availableWidthForMinuteCells = timeTable.clientWidth - actualHourColumnWidth;
+            dynamicCellWidth = availableWidthForMinuteCells / CELLS_PER_HOUR;
+
+            // dynamicCellWidth가 음수이거나 너무 작아지지 않도록 합니다.
+            if (dynamicCellWidth <= 0) {
+                dynamicCellWidth = 1; // 0으로 나누는 것을 방지하거나 음수 너비를 방지하고 최소 1px를 보장합니다.
+            }
+
+            console.log(`[updateCellDimensions] timeTable.clientWidth: ${timeTable.clientWidth}, actualHourColumnWidth: ${actualHourColumnWidth}, dynamicCellWidth: ${dynamicCellWidth}`);
+            renderActivitiesForSelectedDay(); // 위치 재계산
+        }
+
+        // --- 활동을 위한 로컬 스토리지 함수 ---
+        /**
+         * 모든 현재 활동 데이터를 로컬 스토리지에 저장합니다.
+         */
+        function saveActivities() {
+            try {
+                localStorage.setItem(LOCAL_STORAGE_ACTIVITIES_KEY, JSON.stringify(allActivities));
+                console.log('[saveActivities] 활동이 로컬 스토리지에 저장되었습니다.');
+            } catch (e) {
+                console.error('[saveActivities] 활동을 로컬 스토리지에 저장하지 못했습니다:', e);
+                showAlert('활동 저장에 실패했습니다. 브라우저 저장 공간을 확인해주세요.');
+            }
+        }
+
+        /**
+         * 로컬 스토리지에서 활동 데이터를 로드합니다.
+         * @returns {Object} 로드된 활동 데이터 또는 빈 객체
+         */
+        function loadActivities() {
+            try {
+                const storedActivities = localStorage.getItem(LOCAL_STORAGE_ACTIVITIES_KEY);
+                if (storedActivities) {
+                    const parsedActivities = JSON.parse(storedActivities);
+                    // 저장된 데이터에 없는 요일도 모두 초기화되도록 보장합니다.
+                    daysOfWeek.forEach((_, index) => {
+                        if (!parsedActivities[index]) {
+                            parsedActivities[index] = [];
+                        }
+                    });
+                    console.log('[loadActivities] 로컬 스토리지에서 활동이 로드되었습니다:', parsedActivities);
+                    return parsedActivities;
+                }
+            } catch (e) {
+                console.error('[loadActivities] 로컬 스토리지에서 활동을 로드하지 못했습니다:', e);
+                showAlert('활동 불러오기에 실패했습니다. 데이터가 손상되었을 수 있습니다.');
+            }
+            console.log('[loadActivities] 로컬 스토리지에서 활동을 찾을 수 없어 빈 상태로 초기화합니다.');
+            // 로드된 내용이 없거나 오류가 발생한 경우 새롭고 빈 구조를 반환합니다.
+            const emptyActivities = {};
+            daysOfWeek.forEach((_, index) => {
+                emptyActivities[index] = [];
+            });
+            return emptyActivities;
+        }
+        // --- 활동을 위한 로컬 스토리지 함수 끝 ---
+
+        // --- 즐겨찾는 색상을 위한 로컬 스토리지 함수 ---
+        /**
+         * 즐겨찾는 색상을 로컬 스토리지에 저장합니다.
+         */
+        function saveFavoriteColors() {
+            try {
+                localStorage.setItem(LOCAL_STORAGE_COLORS_KEY, JSON.stringify(favoriteColors));
+                console.log('[saveFavoriteColors] 즐겨찾는 색상이 로컬 스토리지에 저장되었습니다.');
+            } catch (e) {
+                console.error('[saveFavoriteColors] 즐겨찾는 색상을 로컬 스토리지에 저장하지 못했습니다:', e);
+            }
+        }
+
+        /**
+         * 로컬 스토리지에서 즐겨찾는 색상을 로드합니다.
+         */
+        function loadFavoriteColors() {
+            try {
+                const storedColors = localStorage.getItem(LOCAL_STORAGE_COLORS_KEY);
+                if (storedColors) {
+                    favoriteColors = JSON.parse(storedColors);
+                    console.log('[loadFavoriteColors] 즐겨찾는 색상이 로드되었습니다:', favoriteColors);
+                } else {
+                    favoriteColors = []; // 찾을 수 없으면 빈 배열로 초기화
+                }
+            } catch (e) {
+                console.error('[loadFavoriteColors] 즐겨찾는 색상을 로컬 스토리지에서 로드하지 못했습니다:', e);
+                favoriteColors = []; // 오류 발생 시 초기화
+            }
+            renderFavoriteColors(); // 로드 후 색상 렌더링
+        }
+
+        /**
+         * 팔레트 섹션에 즐겨찾는 색상 스와치를 렌더링합니다.
+         */
+        function renderFavoriteColors() {
+            favoriteColorsPalette.innerHTML = ''; // 기존 스와치 지우기
+            if (favoriteColors.length === 0) {
+                favoriteColorsPalette.textContent = '아직 저장된 색상이 없습니다.';
+                favoriteColorsPalette.style.color = 'var(--placeholder-color)';
+                favoriteColorsPalette.style.fontSize = '10px'; /* 폰트 크기 조정 */
+                favoriteColorsPalette.style.textAlign = 'center';
+            } else {
+                favoriteColors.forEach(color => {
+                    const swatch = document.createElement('div');
+                    swatch.classList.add('color-swatch');
+                    swatch.style.backgroundColor = color;
+                    swatch.dataset.color = color; // 색상 값 저장
+                    swatch.title = color; // 호버 시 헥스 값 표시
+                    swatch.addEventListener('click', () => {
+                        blockColorInput.value = color; // 클릭한 스와치 색상으로 입력 색상 설정
+                    });
+                    favoriteColorsPalette.appendChild(swatch);
+                });
+            }
+        }
+
+        /**
+         * 현재 선택된 색상을 즐겨찾는 색상 팔레트에 추가합니다.
+         */
+        addToPaletteButton.addEventListener('click', () => {
+            const currentColor = blockColorInput.value.toLowerCase(); // 일관된 비교를 위해 소문자로 변환
+            if (!favoriteColors.includes(currentColor)) {
+                favoriteColors.push(currentColor);
+                saveFavoriteColors();
+                renderFavoriteColors();
+                showAlert('색상이 팔레트에 추가되었습니다.');
+            } else {
+                showAlert('이미 팔레트에 있는 색상입니다.');
+            }
+        });
+        // --- 즐겨찾는 색상을 위한 로컬 스토리지 함수 끝 ---
+
+
+        // 사용자 지정 알림 메시지 표시 함수
+        function showAlert(message) {
+            customAlertMessage.textContent = message;
+            customAlertBox.classList.add('visible');
+        }
+
+        // 사용자 지정 알림 메시지 닫기 이벤트 리스너
+        customAlertCloseBtn.addEventListener('click', () => {
+            customAlertBox.classList.remove('visible');
+        });
+
+        // 시간/분 선택 드롭다운 채우기 함수
+        function populateTimeSelects() {
+            // 시간 (오전 6시부터 다음 날 오전 5시 55분까지 -> 06부터 29까지)
+            for (let i = START_DISPLAY_HOUR; i < START_DISPLAY_HOUR + TOTAL_HOURS; i++) {
+                const displayHour = i.toString().padStart(2, '0'); // 06, 07, ..., 23, 24, 25, ..., 29
+                
+                const startOpt = document.createElement('option');
+                startOpt.value = i;
+                startOpt.textContent = displayHour;
+                startTimeHourSelect.appendChild(startOpt);
+
+                const endOpt = document.createElement('option');
+                endOpt.value = i;
+                endOpt.textContent = displayHour;
+                endTimeHourSelect.appendChild(endOpt);
+            }
+
+            // 분 (00부터 55까지)
+            for (let i = 0; i < MINUTES_IN_HOUR; i += MINUTES_PER_CELL) {
+                const minute = i.toString().padStart(2, '0');
+                const startOpt = document.createElement('option');
+                startOpt.value = i;
+                startOpt.textContent = minute;
+                startTimeMinuteSelect.appendChild(startOpt);
+
+                const endOpt = document.createElement('option');
+                endOpt.value = i;
+                endOpt.textContent = minute;
+                endTimeMinuteSelect.appendChild(endOpt);
+            }
+        }
+
+        // 요일 선택 드롭다운 채우기 함수
+        function populateDayOfWeekSelect() {
+            dayOfWeekSelect.innerHTML = ''; // 기존 옵션 지우기
+            daysOfWeek.forEach((day, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = day;
+                dayOfWeekSelect.appendChild(option);
+            });
+            dayOfWeekSelect.value = selectedDayIndex; // 현재 요일로 설정
+        }
+
+
+        // 시간표 그리드 생성 함수
+        function createTimeTable() {
+            // 오전 6시부터 다음 날 오전 5시 55분까지 (총 24시간)
+            // 따라서 시간은 6부터 29까지 (다음 날 오전 5시)
+            for (let h = START_DISPLAY_HOUR; h < START_DISPLAY_HOUR + TOTAL_HOURS; h++) {
+                const displayHour = h % 24; // 24 이상 시간은 00, 01 등으로 표시
+                const hourCell = document.createElement('div');
+                hourCell.classList.add('time-table-cell', 'header-hour-cell');
+                hourCell.textContent = displayHour.toString().padStart(2, '0');
+                timeTable.appendChild(hourCell);
+
+                for (let m = 0; m < MINUTES_IN_HOUR; m += MINUTES_PER_CELL) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('time-table-cell', 'time-cell');
+                    cell.dataset.hour = h; // 실제 시간 값 저장 (6-29)
+                    cell.dataset.minute = m; // 실제 분 값 저장 (0, 5, ..., 55)
+                    timeTable.appendChild(cell);
+                }
+            }
+        }
+
+        // 시간 (시, 분)을 총 분으로 변환하는 헬퍼 함수
+        function timeToTotalMinutes(hour, minute) {
+            return (hour * MINUTES_IN_HOUR) + minute;
+        }
+
+        /**
+         * 시간표에 단일 활동 블록을 렌더링합니다.
+         * 이 함수는 `renderActivitiesForSelectedDay`에 의해 호출됩니다.
+         */
+        function renderSingleActivityBlock(activityData, activityIndexInArray) {
+            let currentStartMinutes = timeToTotalMinutes(activityData.startHour, activityData.startMinute);
+            let finalEndMinutes = timeToTotalMinutes(activityData.endHour, activityData.endMinute);
+
+            // 활동을 1시간 세그먼트 또는 남은 시간 세그먼트로 분할
+            while (currentStartMinutes < finalEndMinutes) {
+                const segmentStartHour = Math.floor(currentStartMinutes / MINUTES_IN_HOUR);
+                const segmentStartMinute = currentStartMinutes % MINUTES_IN_HOUR;
+
+                // 현재 시간 세그먼트의 끝 (예: 09:55 + 5분 = 10:00) 또는 활동의 최종 종료 시간 중 더 이른 시간을 선택합니다.
+                let segmentEndMinutes = Math.min(
+                    finalEndMinutes,
+                    timeToTotalMinutes(segmentStartHour, 55) + MINUTES_PER_CELL
+                );
+
+                const segmentDurationMinutes = segmentEndMinutes - currentStartMinutes;
+
+                if (segmentDurationMinutes <= 0) {
+                    currentStartMinutes = segmentEndMinutes;
+                    continue;
+                }
+
+                const segmentStartCellIndexInHour = segmentStartMinute / MINUTES_PER_CELL;
+                const segmentDurationCells = segmentDurationMinutes / MINUTES_PER_CELL;
+
+                const row = (segmentStartHour - START_DISPLAY_HOUR); // 시간표의 행 인덱스 (0부터 시작)
+
+                // 시간표 표시 범위를 벗어나는 블록은 렌더링하지 않습니다.
+                if (row < 0 || row >= TOTAL_HOURS) {
+                    currentStartMinutes = segmentEndMinutes;
+                    continue;
+                }
+
+                const block = document.createElement('div');
+                block.classList.add('schedule-block');
+                block.textContent = activityData.activityName;
+                block.style.backgroundColor = activityData.blockColor;
+
+                // 스케줄 블록의 위치와 크기 계산 (동적 셀 너비 사용)
+                // 쿼리 셀렉터를 사용하여 첫 번째 열 (시간 열)의 실제 너비를 가져옵니다.
+                const firstColumnHeader = timeTable.querySelector('.header-hour-cell');
+                const actualHourColumnWidth = firstColumnHeader ? firstColumnHeader.offsetWidth : 25; // 찾을 수 없는 경우 25px로 대체
+
+                block.style.left = `${actualHourColumnWidth + (segmentStartCellIndexInHour * dynamicCellWidth)}px`;
+                block.style.top = `${(row + 1) * CELL_HEIGHT}px`; // 분 헤더 행 때문에 +1
+                block.style.width = `${segmentDurationCells * dynamicCellWidth}px`;
+                block.style.height = `${CELL_HEIGHT}px`;
+
+                console.log(`[renderSingleActivityBlock] 활동: ${activityData.activityName}, Left: ${block.style.left}, Top: ${block.style.top}, Width: ${block.style.width}, Index: ${activityIndexInArray}`);
+
+                // 데이터 속성 저장 (삭제 확인 등에 사용)
+                block.dataset.originalActivityName = activityData.activityName;
+                block.dataset.originalStartHour = activityData.startHour;
+                block.dataset.originalStartMinute = activityData.startMinute;
+                block.dataset.originalEndHour = activityData.endHour;
+                block.dataset.originalEndMinute = activityData.endMinute;
+                block.dataset.blockColor = activityData.blockColor;
+                block.dataset.dayOfWeek = activityData.dayOfWeek; // 요일 데이터 추가
+                block.dataset.activityIndex = activityIndexInArray; // 배열의 인덱스 저장 (삭제용)
+
+                // 삭제 기능 추가: 사용자 지정 모달 사용
+                block.addEventListener('click', (event) => {
+                    event.stopPropagation(); // 부모 요소로의 클릭 이벤트 전파 방지
+                    console.log(`[schedule-block click] 블록 클릭됨: ${block.dataset.originalActivityName}, 인덱스: ${block.dataset.activityIndex}`);
+                    blockToDelete = block; // 삭제할 블록 저장
+                    modalActivityName.textContent = `'${block.dataset.originalActivityName}' 활동을`; // 모달에 활동명 표시
+                    deleteConfirmModal.classList.add('visible'); // 모달 표시
+                    console.log('[schedule-block click] 삭제 모달이 표시되어야 합니다.');
+                });
+
+                timeTableContainer.appendChild(block); // 시간표 컨테이너에 블록 추가
+
+                currentStartMinutes = segmentEndMinutes; // 다음 세그먼트의 시작 시간으로 이동
+            }
+        }
+
+        /**
+         * 현재 선택된 요일에 대한 활동을 시간표에 렌더링합니다.
+         * 요일이 변경되거나 활동이 추가/삭제될 때 호출됩니다.
+         */
+        function renderActivitiesForSelectedDay() {
+            // 기존 시간표 블록 모두 제거
+            document.querySelectorAll('.schedule-block').forEach(block => block.remove());
+
+            const activitiesForCurrentDay = allActivities[selectedDayIndex] || [];
+            console.log(`[renderActivitiesForSelectedDay] 요일 ${selectedDayIndex}에 대한 활동 렌더링:`, activitiesForCurrentDay);
+            // 활동을 렌더링하기 전에 배열을 다시 인덱싱하여 `activityIndex`가 항상 올바른지 확인합니다.
+            activitiesForCurrentDay.forEach((activity, index) => {
+                renderSingleActivityBlock(activity, index);
+            });
+        }
+
+        /**
+         * 입력 UI의 값을 사용하여 새 활동을 추가합니다.
+         * `allActivities` 객체에 활동 데이터를 저장하고 시간표를 다시 렌더링합니다.
+         */
+        function addActivityBlock() {
+            const activityName = activityNameInput.value.trim();
+            const initialStartHour = parseInt(startTimeHourSelect.value, 10);
+            const initialStartMinute = parseInt(startTimeMinuteSelect.value, 10);
+            const initialEndHour = parseInt(endTimeHourSelect.value, 10);
+            const initialEndMinute = parseInt(endTimeMinuteSelect.value, 10);
+            const blockColor = blockColorInput.value;
+            const dayOfWeek = parseInt(dayOfWeekSelect.value, 10); // 선택된 요일 인덱스
+
+            console.log(`[addActivityBlock] 추가 시도: ${activityName}, ${initialStartHour}:${initialStartMinute} - ${initialEndHour}:${initialEndMinute}, 요일: ${daysOfWeek[dayOfWeek]}`);
+
+            if (!activityName) {
+                showAlert('활동명을 입력해주세요.');
+                console.log('[addActivityBlock] 유효성 검사 실패: 활동명이 비어 있습니다.');
+                return;
+            }
+
+            let currentStartMinutes = timeToTotalMinutes(initialStartHour, initialStartMinute);
+            let finalEndMinutes = timeToTotalMinutes(initialEndHour, initialEndMinute);
+
+            if (currentStartMinutes >= finalEndMinutes) {
+                showAlert('종료 시간은 시작 시간보다 늦어야 합니다.');
+                console.log('[addActivityBlock] 유효성 검사 실패: 종료 시간이 시작 시간보다 빠르거나 같습니다.');
+                return;
+            }
+
+            const tableStartTimeTotalMinutes = timeToTotalMinutes(START_DISPLAY_HOUR, 0);
+            const tableEndTimeTotalMinutes = timeToTotalMinutes(START_DISPLAY_HOUR + TOTAL_HOURS, 0);
+
+            if (currentStartMinutes < tableStartTimeTotalMinutes || finalEndMinutes > tableEndTimeTotalMinutes) {
+                showAlert('시작 또는 종료 시간이 시간표 범위(오전 6시 ~ 다음날 오전 5시 55분)를 벗어납니다.');
+                console.log(`[addActivityBlock] 유효성 검사 실패: 시간 범위 벗어남. 시작: ${currentStartMinutes}, 종료: ${finalEndMinutes}. 시간표 범위: ${tableStartTimeTotalMinutes} - ${tableEndTimeTotalMinutes}`);
+                return;
+            }
+
+            // 새 활동 객체 생성
+            const newActivity = {
+                activityName,
+                startHour: initialStartHour,
+                startMinute: initialStartMinute,
+                endHour: initialEndHour,
+                endMinute: initialEndMinute,
+                blockColor,
+                dayOfWeek // 요일 정보 추가
+            };
+
+            // 해당 요일의 배열에 활동 추가
+            if (!allActivities[dayOfWeek]) {
+                allActivities[dayOfWeek] = [];
+            }
+            allActivities[dayOfWeek].push(newActivity);
+            console.log(`[addActivityBlock] 요일 ${dayOfWeek}에 활동 추가됨:`, newActivity);
+            console.log('[addActivityBlock] 현재 allActivities 상태:', allActivities);
+
+            saveActivities(); // 활동 추가 후 로컬 스토리지에 저장
+            renderActivitiesForSelectedDay(); // 현재 선택된 요일에 대한 시간표 다시 렌더링
+
+            // 입력 필드 지우기
+            activityNameInput.value = '';
+            // blockColorInput.value = '#ff88bb'; // 기본 색상으로 재설정
+        }
+
+        // 모달 '삭제' 버튼 클릭 이벤트
+        confirmDeleteBtn.addEventListener('click', () => {
+            console.log('[confirmDeleteBtn click] 삭제 버튼 클릭됨.');
+            if (blockToDelete) {
+                const dayToDelete = parseInt(blockToDelete.dataset.dayOfWeek, 10);
+                const activityIndexToDelete = parseInt(blockToDelete.dataset.activityIndex, 10);
+
+                console.log(`[confirmDeleteBtn click] 활동 삭제 중: 요일 ${dayToDelete}, 인덱스 ${activityIndexToDelete}`);
+                // `allActivities` 배열에서 활동 제거
+                if (allActivities[dayToDelete] && allActivities[dayToDelete][activityIndexToDelete] !== undefined) { // undefined 확인
+                    allActivities[dayToDelete].splice(activityIndexToDelete, 1);
+                    console.log(`[confirmDeleteBtn click] 배열에서 활동 제거됨. 요일 ${dayToDelete}의 새 배열:`, allActivities[dayToDelete]);
+                } else {
+                    console.warn(`[confirmDeleteBtn click] 삭제할 활동을 배열에서 찾을 수 없습니다. 요일: ${dayToDelete}, 인덱스: ${activityIndexToDelete}`);
+                }
+
+                blockToDelete.classList.add('deleting'); // 삭제 시 시각 효과
+                setTimeout(() => {
+                    blockToDelete.remove(); // 블록 제거
+                    blockToDelete = null; // 변수 초기화
+                    deleteConfirmModal.classList.remove('visible'); // 모달 숨기기
+                    saveActivities(); // 활동 삭제 후 로컬 스토리지에 저장
+                    renderActivitiesForSelectedDay(); // 삭제 후 시간표 다시 렌더링 (인덱스 문제 방지)
+                    console.log('[confirmDeleteBtn click] 활동이 삭제되고 다시 렌더링되었습니다.');
+                }, 300); // 삭제 전 짧은 지연 (애니메이션 효과용)
+            } else {
+                console.warn('[confirmDeleteBtn click] blockToDelete가 null입니다.');
+            }
+        });
+
+        // 모달 '취소' 버튼 클릭 이벤트
+        cancelDeleteBtn.addEventListener('click', () => {
+            console.log('[cancelDeleteBtn click] 취소 버튼 클릭됨.');
+            blockToDelete = null; // 변수 초기화
+            deleteConfirmModal.classList.remove('visible'); // 모달 숨기기
+        });
+
+        // 모달 콘텐츠 외부 클릭 시 모달 닫기 (선택 사항)
+        deleteConfirmModal.addEventListener('click', (event) => {
+            if (event.target === deleteConfirmModal) {
+                console.log('[deleteConfirmModal click] 오버레이 클릭됨, 모달 닫기.');
+                blockToDelete = null;
+                deleteConfirmModal.classList.remove('visible');
+            }
+        });
+
+        // --- 드래그 기능 시작 ---
+
+        // 마우스 좌표에서 셀 데이터 (시, 분, 열, 행) 가져오기 함수
+        function getCellDataFromCoordinates(clientX, clientY) {
+            const containerRect = timeTableContainer.getBoundingClientRect();
+            const relativeX = clientX - containerRect.left;
+            const relativeY = clientY - containerRect.top;
+
+            // 시간표 헤더를 제외한 실제 셀 영역 계산
+            const firstColumnHeader = timeTable.querySelector('.header-hour-cell');
+            const actualHourColumnWidth = firstColumnHeader ? firstColumnHeader.offsetWidth : 25; // 찾을 수 없는 경우 25px로 대체
+
+            let colIndex;
+            if (relativeX < actualHourColumnWidth) {
+                colIndex = 0; // 시간 레이블 열
+            } else {
+                colIndex = Math.floor((relativeX - actualHourColumnWidth) / dynamicCellWidth) + 1; // 그리드 열 인덱스 (분 셀의 경우 1부터 시작)로 변환하기 위해 +1
+            }
+            
+            const rowIndex = Math.floor(relativeY / CELL_HEIGHT);
+
+            // 시간표 그리드 범위 내에 있는지 확인 (헤더 제외)
+            if (colIndex < 1 || rowIndex < 1) { // colIndex 0은 시간 레이블, rowIndex 0은 분 헤더
+                return null; // 헤더 영역 또는 시간표 외부
+            }
+
+            // 실제 시간과 분 계산 (시작 시간 및 셀 크기 고려)
+            const hour = (rowIndex - 1) + START_DISPLAY_HOUR;
+            const minute = (colIndex - 1) * MINUTES_PER_CELL;
+
+            // 계산된 시간/분이 유효한 시간표 범위 내에 있는지 다시 확인
+            if (hour >= START_DISPLAY_HOUR && hour < START_DISPLAY_HOUR + TOTAL_HOURS &&
+                minute >= 0 && minute < MINUTES_IN_HOUR) {
+                return { hour, minute, col: colIndex, row: rowIndex };
+            }
+            return null;
+        }
+
+        // 마우스 다운 이벤트 핸들러
+        timeTableContainer.addEventListener('mousedown', (e) => {
+            // 왼쪽 마우스 버튼만 허용
+            if (e.button !== 0) return;
+
+            // schedule-block이 클릭된 경우 드래그 시작 안 함 (삭제 기능과 충돌 방지)
+            if (e.target.classList.contains('schedule-block')) {
+                return;
+            }
+
+            // 시간표 셀에서만 드래그 시작
+            const startCellData = getCellDataFromCoordinates(e.clientX, e.clientY);
+            if (!startCellData) {
+                return;
+            }
+
+            isDragging = true;
+            dragStartCellData = startCellData;
+
+            // 임시 드래그 미리보기 블록 생성
+            currentDragElement = document.createElement('div');
+            currentDragElement.classList.add('drag-preview-block');
+            // 초기 위치 및 크기 설정 (시작 셀과 동일, 동적 셀 너비 사용)
+            const firstColumnHeader = timeTable.querySelector('.header-hour-cell');
+            const actualHourColumnWidth = firstColumnHeader ? firstColumnHeader.offsetWidth : 25; // 찾을 수 없는 경우 25px로 대체
+
+            currentDragElement.style.left = `${actualHourColumnWidth + ((startCellData.col - 1) * dynamicCellWidth)}px`;
+            currentDragElement.style.top = `${startCellData.row * CELL_HEIGHT}px`;
+            currentDragElement.style.width = `${dynamicCellWidth}px`;
+            currentDragElement.style.height = `${CELL_HEIGHT}px`;
+            timeTableContainer.appendChild(currentDragElement);
+
+            // 드래그 중 마우스가 테이블을 벗어나더라도 감지할 수 있도록 전체 문서에 mousemove 및 mouseup 이벤트 리스너 추가
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+        });
+
+        // 마우스 이동 이벤트 핸들러
+        function handleMouseMove(e) {
+            if (!isDragging) return;
+
+            const currentCellData = getCellDataFromCoordinates(e.clientX, e.clientY);
+
+            if (currentCellData) {
+                // 드래그 시작 셀과 현재 셀 시간 데이터를 비교하여 실제 시작/종료 시간 결정
+                let effectiveStartTotalMinutes = timeToTotalMinutes(dragStartCellData.hour, dragStartCellData.minute);
+                let effectiveEndTotalMinutes = timeToTotalMinutes(currentCellData.hour, currentCellData.minute);
+
+                // 드래그 방향에 따라 시작/종료 시간 조정
+                if (effectiveEndTotalMinutes < effectiveStartTotalMinutes) {
+                    [effectiveStartTotalMinutes, effectiveEndTotalMinutes] = [effectiveEndTotalMinutes, effectiveStartTotalMinutes];
+                }
+
+                // 종료 시간은 선택된 셀의 끝을 의미하므로 5분 추가
+                effectiveEndTotalMinutes += MINUTES_PER_CELL;
+
+                const tableStartTimeTotalMinutes = timeToTotalMinutes(START_DISPLAY_HOUR, 0);
+
+                const startCellIndex = (effectiveStartTotalMinutes - tableStartTimeTotalMinutes) / MINUTES_PER_CELL;
+                const endCellIndex = (effectiveEndTotalMinutes - tableStartTimeTotalMinutes) / MINUTES_PER_CELL;
+
+                const durationCells = endCellIndex - startCellIndex;
+
+                if (durationCells > 0) {
+                    const startHourForDisplay = Math.floor(effectiveStartTotalMinutes / MINUTES_IN_HOUR);
+                    const startMinuteForDisplay = effectiveStartTotalMinutes % MINUTES_IN_HOUR;
+
+                    const row = (startHourForDisplay - START_DISPLAY_HOUR);
+                    const colOffset = (startMinuteForDisplay / MINUTES_PER_CELL); // 시간 레이블 열을 제외한 분 열 인덱스
+
+                    const firstColumnHeader = timeTable.querySelector('.header-hour-cell');
+                    const actualHourColumnWidth = firstColumnHeader ? firstColumnHeader.offsetWidth : 25; // 찾을 수 없는 경우 25px로 대체
+
+                    currentDragElement.style.left = `${actualHourColumnWidth + (colOffset * dynamicCellWidth)}px`;
+                    currentDragElement.style.top = `${(row + 1) * CELL_HEIGHT}px`; // 분 헤더 행 때문에 +1
+                    currentDragElement.style.width = `${durationCells * dynamicCellWidth}px`;
+                    currentDragElement.style.height = `${CELL_HEIGHT}px`;
+                } else {
+                    // 드래그 길이가 0이거나 음수인 경우 (한 셀 미만)
+                    const firstColumnHeader = timeTable.querySelector('.header-hour-cell');
+                    const actualHourColumnWidth = firstColumnHeader ? firstColumnHeader.offsetWidth : 25; // 찾을 수 없는 경우 25px로 대체
+
+                    currentDragElement.style.width = `${dynamicCellWidth}px`;
+                    currentDragElement.style.height = `${CELL_HEIGHT}px`;
+                    currentDragElement.style.left = `${actualHourColumnWidth + ((dragStartCellData.col - 1) * dynamicCellWidth)}px`;
+                    currentDragElement.style.top = `${dragStartCellData.row * CELL_HEIGHT}px`;
+                }
+            }
+        }
+
+        // 마우스 업 이벤트 핸들러
+        function handleMouseUp(e) {
+            if (!isDragging) return;
+
+            isDragging = false;
+            
+            // 임시 드래그 미리보기 블록 제거
+            if (currentDragElement) {
+                currentDragElement.remove();
+                currentDragElement = null;
+            }
+
+            const endCellData = getCellDataFromCoordinates(e.clientX, e.clientY);
+
+            if (dragStartCellData && endCellData) {
+                let startTotalMinutes = timeToTotalMinutes(dragStartCellData.hour, dragStartCellData.minute);
+                let endTotalMinutes = timeToTotalMinutes(endCellData.hour, endCellData.minute);
+
+                // 드래그 방향에 따라 실제 시작/종료 시간 확인
+                if (endTotalMinutes < startTotalMinutes) {
+                    [startTotalMinutes, endTotalMinutes] = [endTotalMinutes, startTotalMinutes];
+                }
+
+                // 종료 시간은 선택된 셀의 끝을 의미하므로 5분 추가
+                let finalAdjustedEndMinutes = endTotalMinutes + MINUTES_PER_CELL;
+                let finalAdjustedEndHour = Math.floor(finalAdjustedEndMinutes / MINUTES_IN_HOUR);
+                let finalAdjustedEndMinute = finalAdjustedEndMinutes % MINUTES_IN_HOUR;
+
+                // 드래그된 시간 범위로 입력 UI 채우기
+                startTimeHourSelect.value = Math.floor(startTotalMinutes / MINUTES_IN_HOUR);
+                startTimeMinuteSelect.value = startTotalMinutes % MINUTES_IN_HOUR;
+                endTimeHourSelect.value = finalAdjustedEndHour;
+                endTimeMinuteSelect.value = finalAdjustedEndMinute;
+
+                // 활동명 입력 필드에 포커스
+                activityNameInput.focus();
+            }
+
+            // 문서에 추가된 이벤트 리스너 제거
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+            dragStartCellData = null; // 드래그 시작 데이터 초기화
+        }
+
+        // --- 드래그 기능 끝 ---
+
+
+        // 초기화 함수 호출
+        populateTimeSelects(); // 시간/분 드롭다운 채우기
+        populateDayOfWeekSelect(); // 요일 드롭다운 채우기
+        createTimeTable(); // 시간표 그리드 생성
+        
+        // ResizeObserver를 사용하여 timeTableContainer 크기 변경 감지
+        const resizeObserver = new ResizeObserver(entries => {
+            for (let entry of entries) {
+                if (entry.target === timeTableContainer) {
+                    updateCellDimensions(); // 컨테이너 크기 변경 시 셀 크기 업데이트 및 다시 렌더링
+                }
+            }
+        });
+        resizeObserver.observe(timeTableContainer); // timeTableContainer 관찰 시작
+
+        // 초기 로드: 셀 크기 계산 및 활동 렌더링
+        // 로컬 스토리지에서 데이터 로드 후 렌더링
+        allActivities = loadActivities(); 
+        loadFavoriteColors(); // 즐겨찾는 색상 로드
+        updateCellDimensions(); // 이 호출에는 renderActivitiesForSelectedDay() 포함
+
+        // '추가' 버튼 클릭 이벤트 리스너
+        addActivityButton.addEventListener('click', addActivityBlock);
+        // 요일 선택 변경 시 이벤트 리스너
+        dayOfWeekSelect.addEventListener('change', (event) => {
+            selectedDayIndex = parseInt(event.target.value, 10);
+            renderActivitiesForSelectedDay(); // 요일 변경 시 활동 다시 렌더링
+        });
+
+        // 초기 선택 값 설정 (예: 09:00 - 10:00)
+        startTimeHourSelect.value = '9';
+        startTimeMinuteSelect.value = '0';
+        endTimeHourSelect.value = '10';
+        endTimeMinuteSelect.value = '0';
+    </script>
+</body>
+</html>
